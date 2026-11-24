@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DAY_MS, validDeadline, canManageTaskContent, canTransition, taskNumber, workflowFormFields } from '../lib/rules.ts';
+import { DAY_MS, validDeadline, localDeadlineIso, canManageTaskContent, canTransition, taskNumber, workflowFormFields } from '../lib/rules.ts';
 import { matchingMedia } from '../lib/media.ts';
 
 const iso = (time) => new Date(time).toISOString();
@@ -16,6 +16,12 @@ test('a calendar day across the spring clock change can be shorter than 24 hours
   const before = Date.parse('2026-03-07T12:00:00-05:00');
   assert.equal(validDeadline('2026-03-08T12:00:00-04:00', before), false);
   assert.equal(validDeadline('2026-03-08T13:00:00-04:00', before), true);
+});
+test('the calendar date and time input use local time and serialize to UTC', () => {
+  const day = new Date(2026, 10, 26);
+  assert.equal(localDeadlineIso(day, '19:11'), new Date(2026, 10, 26, 19, 11).toISOString());
+  assert.equal(localDeadlineIso(day, '24:00'), '');
+  assert.equal(localDeadlineIso(undefined, '19:11'), '');
 });
 test('workflows require review and reserve approval/reopening for admins', () => {
   assert.equal(canTransition('agency_member', 'assigned', 'completed'), false);

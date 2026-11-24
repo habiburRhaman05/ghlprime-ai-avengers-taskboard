@@ -1,14 +1,15 @@
 'use client';
 
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react';
+import { LoaderCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
 export type FormResult = { error?: string; field?: string; ok?: string };
 type Action = (previous: FormResult, form: FormData) => Promise<FormResult>;
 
-export function ActionForm({ action, children, submit, className, quiet = false }: {
-  action: Action; children?: React.ReactNode; submit: string; className?: string; quiet?: boolean;
+export function ActionForm({ action, children, submit, submitIcon, className, quiet = false }: {
+  action: Action; children?: React.ReactNode; submit: string; submitIcon?: React.ReactNode; className?: string; quiet?: boolean;
 }) {
   const [result, handle, pending] = useActionState(action, {});
   const form = useRef<HTMLFormElement>(null);
@@ -16,18 +17,23 @@ export function ActionForm({ action, children, submit, className, quiet = false 
     if (result.ok) { form.current?.reset(); toast.success(result.ok); }
     if (result.error) toast.error(result.error);
   }, [result]);
-  return <form ref={form} className={className ?? 'stack'} onInvalid={(event) => {
+  return <form ref={form} className={className ?? 'stack'} aria-busy={pending} onInvalid={(event) => {
     const field = event.target as HTMLInputElement;
     toast.error(field.validationMessage || 'Please check the highlighted field.', { id: 'form-validation' });
   }} onSubmit={(event) => {
     event.preventDefault();
+    if (pending) return;
     const data = new FormData(event.currentTarget);
     startTransition(() => handle(data));
   }}>
     {children}
     {result.error && <p className="error" role="alert">{result.error}</p>}
     {result.ok && <p className="success" role="status">{result.ok}</p>}
-    <div><Button variant={quiet ? 'link' : 'default'} disabled={pending}>{pending ? 'Working…' : submit}</Button></div>
+    <div className="action-buttons">
+      <Button variant={quiet ? 'link' : 'default'} type="submit" disabled={pending}>
+        {pending ? <><LoaderCircle className="submit-spinner" size={16} aria-hidden="true" /> Working…</> : <>{submit}{submitIcon}</>}
+      </Button>
+    </div>
   </form>;
 }
 

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { ActionForm } from '@/app/components';
 import { addTaskResource, removeTaskResource } from '@/app/actions';
@@ -8,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 export function ResourceForm({ taskId, kind }: { taskId: string; kind: 'access' | 'media_link' }) {
   const access = kind === 'access';
-  return <details className="resource-add"><summary>{access ? '+ Add access item' : '+ Add media link'}</summary>
+  return <details className="resource-add"><summary><Plus size={17} aria-hidden="true" />{access ? 'Add access item' : 'Add media link'}</summary>
     <ActionForm action={addTaskResource} submit={access ? 'Save access item' : 'Save media link'}>
       <input type="hidden" name="taskId" value={taskId} /><input type="hidden" name="kind" value={kind} />
       <label>{access ? 'Platform name' : 'Link label'}<Input name="label" maxLength={100} required placeholder={access ? 'e.g. Meta Business Suite' : 'e.g. Test video'} /></label>

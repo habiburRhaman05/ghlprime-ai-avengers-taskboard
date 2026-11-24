@@ -20,6 +20,7 @@ export function DatePicker({
 }) {
   const [open, setOpen] = useState(false);
   const firstDay = earliestDay && startOfDay(earliestDay);
+  const displayDate = value ? format(value, 'PPP') : 'Pick a date';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -30,12 +31,13 @@ export function DatePicker({
           variant="secondary"
           className="ui-input date-picker-trigger"
           data-empty={!value}
+          aria-label={value ? 'Date, ' + displayDate : displayDate}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           disabled={disabled}
         >
           <CalendarDays size={17} aria-hidden="true" />
-          <span>{value ? format(value, 'PPP') : 'Pick a date'}</span>
+          <span>{displayDate}</span>
           <ChevronDown size={15} className="date-picker-chevron" aria-hidden="true" />
         </Button>
       </PopoverTrigger>

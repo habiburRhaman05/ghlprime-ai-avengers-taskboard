@@ -9,7 +9,7 @@ test('the sign-in route renders and requests private caching', async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get('cache-control') ?? '', /no-store/);
   const html = await response.text();
-  assert.match(html, /<h1>Welcome back/);
+  assert.match(html, /<h1[^>]*>Welcome back<\/h1>/);
   assert.match(html, /name="email"/);
   assert.match(html, /name="password"/);
 });

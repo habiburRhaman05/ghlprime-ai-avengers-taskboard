@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MEDIA_LIMIT, MEDIA_TYPES } from '@/lib/media';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 async function submit(payload: object) {
@@ -18,7 +20,7 @@ export function Upload({ taskId }: { taskId: string }) {
   const [finishId, setFinishId] = useState<string>();
   const [error, setError] = useState('');
   const router = useRouter();
-  return <form className="stack" onSubmit={async (event) => {
+  return <form className="stack upload-form" aria-busy={pending} onSubmit={async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const file = new FormData(form).get('media');
@@ -59,6 +61,6 @@ export function Upload({ taskId }: { taskId: string }) {
       <small>PNG, JPEG, WebP, MP4, or WebM · up to 50 MB each</small>
     </label>
     {error && <p role="alert" className="error">{error}</p>}
-    <div><button className="button secondary" disabled={pending}>{pending ? 'Uploading…' : finishId ? 'Retry verification' : 'Upload media'}</button></div>
+    <div><Button variant="secondary" type="submit" disabled={pending}><UploadCloud size={16} aria-hidden="true" />{pending ? 'Uploading…' : finishId ? 'Retry verification' : 'Upload media'}</Button></div>
   </form>;
 }

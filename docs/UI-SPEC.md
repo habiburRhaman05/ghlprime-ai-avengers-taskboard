@@ -2,14 +2,15 @@
 
 ## Visual system
 
-An English operations interface with a responsive top navigation, light slate background, white panels, and violet primary actions. Use DM Sans and shared shadcn-style input, textarea and button components. The sign-in page pairs a dark workspace introduction with a clear login form and password visibility toggle; it stacks on smaller screens. Reserve amber for blocked work, violet for review, green for completed, and red text for overdue or errors. Status always includes a text label. At 620 px and below, task detail and form fields become a single column. Project task board columns scroll horizontally when necessary. Show accessible loading skeletons and toast feedback alongside inline errors.
+Use DM Sans, shared shadcn/ui form controls, white panels, and violet primary actions. The sign-in form sits in a centered card and includes a password visibility toggle. Navigation stays in the header and wraps below the logo and account controls on phones. Task panels stack on narrower screens, and the board stacks its status columns on phones. Status always includes a text label. Show accessible loading skeletons and toast feedback alongside inline errors.
 
 ## Screen map
 
 | Screen | Content and actions | Key states |
 |---|---|---|
 | Login | Portal name, email, password, Sign in | Invalid credentials, expired account link, awaiting project access |
-| Dashboard | Project tiles, task list, status filter, deadline, New task for admins | Scoped project, no project access, empty filter results, due soon, overdue, pagination |
+| Dashboard | Project cards with open and completed task counts, workspace totals, New task for admins | Scoped projects, no project access, tasks due within 24 hours |
+| Project board | Clickable task cards grouped by status, status filter, and pagination | Empty board, empty filter results, due soon, overdue |
 | Create task | Full width with task details on the left, content and access on the right, and Create task at bottom right. Panels stack on smaller screens. | Invalid deadline, invalid access item, submit in progress, retained inputs after validation error |
 | Task detail | Task ID, project, status, deadline, instructions, checklist, media, comments, access, activity | Blocker note, ready for review, overdue, upload pending or failed |
 | Settings | Account, password, project list | Super Admin additionally sees project creation, account grant form and client memberships |
@@ -48,7 +49,7 @@ When Blocked is selected, display **Who needs to act?** and **What is needed?**.
 
 ## Interaction and accessibility checks
 
-- Check tab order from the rail through filters and into the task content, including file input.
+- Check tab order from the top navigation through filters and into the task content, including the calendar and file input.
 - Check programmatic labels, accessible submit states, visible focus, and text announcements for errors.
 - Check safe wrapping of long names, file names, and instructions. Keep the primary action visible on a 360 px viewport.
 - Check that an unauthorized project has no visible tile, and that its direct route shows the same generic unavailable screen as an unknown task.
