@@ -1,0 +1,59 @@
+.ui-popover {
+  z-index: 50;
+  max-width: calc(100vw - 24px);
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  padding: .65rem;
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 36px #18203b26;
+}
+
+.ui-calendar {
+  --rdp-accent-color: var(--brand);
+  --rdp-accent-background-color: #f0eeff;
+  --rdp-day-width: clamp(2rem, 10vw, 2.42rem);
+  --rdp-day-height: var(--rdp-day-width);
+  --rdp-day_button-width: var(--rdp-day-width);
+  --rdp-day_button-height: var(--rdp-day-height);
+  --rdp-day_button-border-radius: .45rem;
+  --rdp-day_button-border: 1px solid transparent;
+  --rdp-selected-border: 1px solid var(--brand);
+  --rdp-nav-height: 2.5rem;
+}
+
+.ui-calendar .rdp-month_caption { align-items: center; font-size: .875rem; }
+.ui-calendar .rdp-month_grid { width: auto; table-layout: fixed; }
+.ui-calendar :is(th, td) { border: 0; padding: 0; background: transparent; }
+.ui-calendar .rdp-weekday { height: 2rem; color: #59657a; font-size: .72rem; opacity: 1; }
+.ui-calendar .rdp-day_button { min-height: 0; padding: 0; font-size: .85rem; font-weight: 500; }
+.ui-calendar .rdp-chevron { fill: none; }
+.ui-calendar :is(.rdp-button_previous, .rdp-button_next) { border-radius: .5rem; color: #4d5770; }
+.ui-calendar :is(.rdp-button_previous, .rdp-button_next):hover:not([aria-disabled="true"]),
+.ui-calendar .rdp-day_button:hover:not(:disabled, [aria-disabled="true"]) {
+  background: #f0eeff;
+  color: #4435ab;
+}
+.ui-calendar .rdp-day[data-selected] .rdp-day_button {
+  background: var(--brand);
+  color: white;
+  font-weight: 700;
+}
+.ui-calendar .rdp-day_button:disabled { opacity: 1; cursor: default; }
+.ui-calendar .rdp-day_button:focus-visible { position: relative; z-index: 1; outline-offset: -2px; }
+
+.button.date-picker-trigger {
+  width: 100%;
+  justify-content: flex-start;
+  gap: .55rem;
+  padding-inline: .8rem;
+  color: var(--ink);
+  font-weight: 500;
+  text-align: left;
+}
+.date-picker-trigger[data-empty="true"] { color: #647086; }
+.date-picker-trigger .date-picker-chevron { margin-inline-start: auto; flex: none; }
+.date-picker-trigger svg:first-child { flex: none; color: #6959da; }
+.date-picker-trigger[aria-expanded="true"] { border-color: #9387f0; box-shadow: 0 0 0 3px #eae8ff; }

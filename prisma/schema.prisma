@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  role         Role     @default(client_admin)
+  email        String   @unique
+  password_hash String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  createdTasks Task[]     @relation("TaskCreator")
+  comments     Comment[]
+  memberships  Membership[]
+  uploads      Media[]    @relation("MediaUploader")
+}
+
+model Project {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  tasks       Task[]
+  memberships Membership[]
+}
+
+model Membership {
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  projectId     String
+  createdBy     String
+  requestId     String
+  title         String
+  instructions  String
+  checklist     Json
+  caption       String?
+  referenceUrl  String?
+  accessLabel   String?
+  accessUrl     String?
+  dueAt         DateTime
+  status        TaskStatus   @default(pending)
+  blocker       String?
+  blockerNote   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator   User        @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  media     Media[]
+  events    Event[]
+
+  @@unique([createdBy, requestId, projectId])
+}
+
+model Comment {
+  id        String       @id @default(cuid())
+  taskId    String
+  authorId  String
+  kind      CommentKind
+  body      String
+  createdAt DateTime     @default(now())
+
+  task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user  User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Media {
+  id          String       @id @default(cuid())
+  taskId      String
+  uploaderId  String
+  objectKey   String
+  filename    String
+  mime        String
+  bytes       Int
+  ready       Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploader User @relation("MediaUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id        String       @id @default(cuid())
+  taskId    String
+  actorId   String
+  action    String
+  details   Json?
+  createdAt DateTime     @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  super_admin
+  agency_member
+  client_admin
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  blocked
+  done
+}
+
+enum CommentKind {
+  update
+  learning
+}
