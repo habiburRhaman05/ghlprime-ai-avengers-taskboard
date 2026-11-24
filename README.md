@@ -30,6 +30,8 @@ Run `npm run dev`, then visit `http://localhost:3000`.
 
 ## Provision and deploy
 
+Use `npm run build` on Vercel. This generates Prisma Client from `prisma/schema.prisma` before Next.js loads the server routes.
+
 1. Create separate staging and production Supabase projects. Apply `db/001_portal.sql` then `db/002_storage.sql` once per database with a migration operator. Keep the portal schema outside the exposed Data API list. Ensure the private bucket supports the 50 MiB maximum.
 2. Provision a dedicated DB login with TLS, `USAGE` on portal and auth schemas, and limited privileges needed for the portal tables and sequences. The application reads only `id`, `email`, and `created_at` from `auth.users`. It writes portal accounts, memberships, projects, tasks, comments, media, and events as permitted by the app. It needs UPDATE for task and media operations and DELETE for membership revocation and failed media reservations. Give runtime access to data without schema modification privileges.
 3. Configure the site URL, production SMTP, and provider invite restrictions. Set the invite email link to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite`. If using password reset emails, use the same route with `type=recovery`. Turn off public sign-up. In production verify the email link against the correct origin before onboarding.
