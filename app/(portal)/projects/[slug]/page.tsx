@@ -8,6 +8,7 @@ import { Time } from '@/app/components';
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Columns3, FolderKanban, Plus, SlidersHorizontal } from 'lucide-react';
+import { ProjectAccessVault, projectAccessItems } from './vault';
 
 export const metadata = { title: 'Project' };
 export default async function ProjectPage({ params, searchParams }: {
@@ -21,12 +22,15 @@ export default async function ProjectPage({ params, searchParams }: {
   const filters = await searchParams;
   const status = statuses.find(item => item === filters.status) ?? '';
   const page = /^[1-9]\d{0,4}$/.test(filters.page ?? '') ? Number(filters.page) : 1;
-  const { rows: tasks } = await query<Pick<Task, 'id' | 'number' | 'title' | 'status' | 'due_at' | 'assignee'> & { overdue: boolean; due_soon: boolean }>(
-    `SELECT id,number,title,status,due_at,assignee,
-     due_at < statement_timestamp() AND status <> 'completed' AS overdue,
-     due_at BETWEEN statement_timestamp() AND statement_timestamp() + interval '24 hours' AND status <> 'completed' AS due_soon FROM portal.tasks
-     WHERE project_id=$1 AND ($2='' OR status::text=$2)
-     ORDER BY (status='completed'),due_at,number LIMIT 51 OFFSET $3`, [project.id, status, (page - 1) * 50]);
+  const [{ rows: tasks }, accessItems] = await Promise.all([
+    query<Pick<Task, 'id' | 'number' | 'title' | 'status' | 'due_at' | 'assignee'> & { overdue: boolean; due_soon: boolean }>(
+      `SELECT id,number,title,status,due_at,assignee,
+       due_at < statement_timestamp() AND status <> 'completed' AS overdue,
+       due_at BETWEEN statement_timestamp() AND statement_timestamp() + interval '24 hours' AND status <> 'completed' AS due_soon FROM portal.tasks
+       WHERE project_id=$1 AND ($2='' OR status::text=$2)
+       ORDER BY (status='completed'),due_at,number LIMIT 51 OFFSET $3`, [project.id, status, (page - 1) * 50]),
+    projectAccessItems(project.id, user),
+  ]);
   const projectUrl = '/projects/' + project.slug;
   const newTaskUrl = '/tasks/new?project=' + project.slug;
   const pageUrl = (n: number) => projectUrl + '?' + new URLSearchParams({ status, page: String(n) });
@@ -45,6 +49,7 @@ export default async function ProjectPage({ params, searchParams }: {
           <Link href={newTaskUrl}><Plus size={18} aria-hidden="true" /> New task</Link>
         </Button>}
       </header>
+      <ProjectAccessVault key={project.id} projectId={project.id} items={accessItems} canEdit={canCreate} />
       <section aria-labelledby="task-board-heading">
         <div className="board-toolbar">
           <div className="board-title"><Columns3 size={21} aria-hidden="true" /><h2 id="task-board-heading">Task board</h2></div>

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { requireActor } from '@/lib/auth';
 import { signOut } from '@/app/actions';
 import { Brand } from '@/app/brand';
@@ -14,7 +13,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <a className="skip-link" href="#workspace">Skip to content</a>
       <header className="topbar">
         <div className="topbar-inner">
-          <Link href="/dashboard" aria-label="GHL Prime Client Portal" className="brand-link"><Brand /></Link>
+          <Brand />
           <TopNavigation />
           <div className="topbar-account">
             <div className="account-identity">

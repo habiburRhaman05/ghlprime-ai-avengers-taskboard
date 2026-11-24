@@ -15,14 +15,14 @@ export const safeLink = z.string().trim().max(1000).refine((value) => {
 export const MAX_ACCESS_ITEMS = 10;
 const accessItem = z.strictObject({
   label: optionalText(100),
-  email: z.union([z.email().max(254), z.literal('')], { error: 'Enter a valid account email.' }).default(''),
+  email: optionalText(254).pipe(z.union([z.email(), z.literal('')], { error: 'Enter a valid account email.' })).default(''),
   password: z.string().max(512).default(''),
   url: safeLink.default(''),
   note: optionalText(2000).default(''),
 });
-export type TaskAccessItem = z.infer<typeof accessItem>;
+export type ProjectAccessDraft = z.output<typeof accessItem>;
 
-const hasAccessDetails = (item: TaskAccessItem) => Object.values(item).some(Boolean);
+const hasAccessDetails = (item: ProjectAccessDraft) => Object.values(item).some(Boolean);
 const accessItems = z.array(accessItem, { error: 'Enter a list of access items.' })
   .max(MAX_ACCESS_ITEMS, `Add up to ${MAX_ACCESS_ITEMS} access items.`)
   .superRefine((items, context) => {
@@ -32,7 +32,18 @@ const accessItems = z.array(accessItem, { error: 'Enter a list of access items.'
       }
     });
   })
-  .transform(items => items.filter(hasAccessDetails));
+  .transform(items => items.filter(hasAccessDetails))
+  .refine(items => items.length > 0, 'Enter a platform label to add an access item.');
+
+const projectAccess = z.object({ projectId: z.uuid(), accessItems });
+
+export function parseProjectAccessForm(form: FormData) {
+  let items: unknown = form.get('accessItems');
+  if (typeof items === 'string') {
+    try { items = JSON.parse(items); } catch { /* Zod rejects invalid JSON as a non-array value. */ }
+  }
+  return projectAccess.safeParse({ projectId: form.get('projectId'), accessItems: items });
+}
 
 export const newTask = z.object({
   projectId: z.uuid({ error: 'Select a project.' }), requestId: z.uuid(),
@@ -41,17 +52,10 @@ export const newTask = z.object({
   dueAt: z.iso.datetime({ error: 'Choose a valid completion date and time.' }),
   checklist: z.array(z.string().trim().min(1).max(160)).max(12),
   caption: optionalText(2200), referenceUrl: safeLink,
-  accessLabel: optionalText(100), accessUrl: safeLink, accessItems: accessItems.default([]),
-}).strict().refine((input) => !!input.accessLabel === !!input.accessUrl, {
-  message: 'Provide both an access label and its link.', path: ['accessUrl'],
-});
+}).strict();
 
 export function parseNewTaskForm(form: FormData) {
   const read = (name: string) => String(form.get(name) ?? '');
-  let items: unknown = form.get('accessItems') ?? [];
-  if (typeof items === 'string') {
-    try { items = JSON.parse(items); } catch { /* Zod rejects invalid JSON as a non-array value. */ }
-  }
   return newTask.safeParse({
     projectId: read('projectId'),
     requestId: read('requestId'),
@@ -61,9 +65,6 @@ export function parseNewTaskForm(form: FormData) {
     checklist: read('checklist').split('\n').map(line => line.trim()).filter(Boolean),
     caption: read('caption'),
     referenceUrl: read('referenceUrl'),
-    accessLabel: read('accessLabel'),
-    accessUrl: read('accessUrl'),
-    accessItems: items,
   });
 }
 

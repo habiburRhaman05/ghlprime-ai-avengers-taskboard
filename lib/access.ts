@@ -9,7 +9,7 @@ export type Project = { id: string; name: string; slug: string };
 export type Task = {
   id: string; number: string; project_id: string; title: string; instructions: string;
   checklist: string[]; caption: string | null; reference_url: string | null;
-  access_label: string | null; access_url: string | null; assignee: string;
+  assignee: string;
   status: Status; blocker: Blocker; blocker_note: string; due_at: Date; created_at: Date;
 };
 export async function projectsFor(user: Actor) {

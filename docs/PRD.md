@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Give each client a project workspace for assigning work to GHL Prime Team. Keep the brief, completion deadline, caption, files, access links, blocker ownership, and conversation together on the task.
+Give each client a project workspace for assigning work to GHL Prime Team. Keep the brief, completion deadline, caption, files, blocker ownership, and conversation together on the task. Store shared account details and restricted links in the project's access vault.
 
 ## Roles and access
 
@@ -17,6 +17,8 @@ Give each client a project workspace for assigning work to GHL Prime Team. Keep 
 | Create tasks assigned to GHL Prime Team | Yes | In own projects |  |
 | Post progress, learnings, and blocker updates | Yes | In own projects | Yes |
 | Add task content and media | Yes | In own projects | No |
+| View project access vault | All projects | In own projects | All GHL Prime projects |
+| Add or remove vault items | Yes | In own projects | No |
 | Approve or reopen completed work | Yes | In own projects |  |
 | Update own password | Yes | Yes | Yes |
 
@@ -32,11 +34,12 @@ New client admins default to all current and future projects when a Super Admin 
 | P02 | Platform administration | Super Admin can create projects, grant client membership, and revoke membership. The agency role has one slot. |
 | P03 | Task creation | A task requires a project, title, instructions, and completion deadline. It gets a globally unique display ID such as `TASK-001` and assigns GHL Prime Team automatically. Consecutive IDs can have gaps. |
 | P04 | Minimum completion deadline | `deadline ≥ creation timestamp + 24 elapsed hours`. Reject 1 hour, 2 hours, 23 hours, and one millisecond under 24 hours. Accept the exact boundary and later valid times. Convert browser entry to an instant and enforce with server and database clocks. There is one completion deadline and no reply timer. |
-| P05 | Content and access | Add an optional checklist, social caption, reference URL, multiple platform access items and labeled media URLs. Platform items may include an email, instructions and a password encrypted server-side. Attach images and videos within the created task. |
+| P05 | Task content and media | Add an optional checklist, social caption, reference URL, and labeled media URLs. Attach images and videos within the created task. |
 | P06 | Status and blocker selection | Task starts Assigned. Blocked requires a selected owner and a note. Owners are the client, GHL Prime Team, or a third party. An unblocked task clears both values. |
 | P07 | Collaboration and approval | Client and agency can post progress updates and learnings. The agency submits work for review. Client Admin or Super Admin can approve; an admin can reopen completed work. Show author and time on comments and recent workflow activity. |
 | P08 | Deadlines and overdue work | Display the deadline in the viewer's timezone. Dashboard flags open tasks due within 24 hours. Dashboard and task detail show Overdue after the deadline. |
 | P09 | Responsive UI and feedback | Provide login, dashboard, create task, task details, and settings on mobile and desktop. Show validation errors, empty states, progress, and permission failures. |
+| P10 | Project access vault | Open the vault below a project banner. Add multiple items with a platform label and optional account email, password, restricted HTTPS link, and note. Existing task access entries appear in their original project's vault. |
 
 ## Example client journey
 
@@ -48,4 +51,4 @@ In-app dashboard is the working queue, with due-soon and overdue indicators. Rem
 
 ## Release acceptance
 
-All five roles-as-accounts (three clients, one agency member, one Super Admin) complete the assigned parts of the journey on staging. Each client sees only granted projects. A signed-in user cannot access another project's files or tasks, and the 24-hour floor holds on direct server requests.
+All five roles-as-accounts (three clients, one agency member, one Super Admin) complete the assigned parts of the journey on staging. Each client sees only granted projects. Direct requests enforce project membership for tasks, files, and vault entries. The 24-hour floor holds on direct task creation requests.

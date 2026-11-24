@@ -80,6 +80,60 @@ test('Prisma accounts receive matching portal profiles without replacing an exis
   }
 });
 
+test('the project vault preserves legacy access and leaves media on its task', async () => {
+  const db = new PGlite();
+  try {
+    for (const file of ['001_portal.sql', '005_task_resources.sql']) {
+      await db.exec(await readFile(new URL('../db/' + file, import.meta.url), 'utf8'));
+    }
+    const { rows: [project, other] } = await db.query('SELECT id FROM portal.projects ORDER BY slug');
+    const { rows: [user] } = await db.query(
+      "INSERT INTO portal.users (id,name,role) VALUES (gen_random_uuid(),'Synthetic admin','super_admin') RETURNING id",
+    );
+    const { rows: [task] } = await db.query(
+      `INSERT INTO portal.tasks (project_id,created_by,request_id,title,instructions,due_at,access_label,access_url)
+       VALUES ($1,$2,gen_random_uuid(),'Synthetic task','Write an update',statement_timestamp() + interval '24 hours',
+         'Original invite','https://example.invalid/invite') RETURNING id`,
+      [project.id, user.id],
+    );
+    const { rows: [resource] } = await db.query(
+      `INSERT INTO portal.task_resources (task_id,created_by,kind,label,url,account_email,note,encrypted_password)
+       VALUES ($1,$2,'access','Synthetic platform','https://example.invalid/vault','test@example.invalid','Synthetic note','v1.synthetic')
+       RETURNING id,label,url,account_email,note,encrypted_password,created_at`,
+      [task.id, user.id],
+    );
+    await db.query(`INSERT INTO portal.task_resources (task_id,created_by,kind,label,url)
+      VALUES ($1,$2,'media_link','Synthetic video','https://example.invalid/video')`, [task.id, user.id]);
+
+    await db.exec(await readFile(new URL('../db/007_project_access_vault.sql', import.meta.url), 'utf8'));
+
+    const vaultFor = id => db.query(
+      'SELECT id,label,url,account_email,note,encrypted_password,created_at,legacy_task_id,created_by FROM portal.project_access_items WHERE project_id=$1',
+      [id],
+    );
+    const { rows: entries } = await vaultFor(project.id);
+    assert.equal(entries.length, 2);
+    assert.deepEqual(entries.find(item => item.id === resource.id), { ...resource, legacy_task_id: task.id, created_by: user.id });
+    const invite = entries.find(item => item.label === 'Original invite');
+    assert.equal(invite.url, 'https://example.invalid/invite');
+    assert.equal(invite.created_by, user.id);
+    assert.equal(invite.encrypted_password, null);
+    assert.equal((await vaultFor(other.id)).rows.length, 0);
+    assert.deepEqual((await db.query('SELECT kind,label,url FROM portal.task_resources WHERE task_id=$1', [task.id])).rows,
+      [{ kind: 'media_link', label: 'Synthetic video', url: 'https://example.invalid/video' }]);
+    assert.deepEqual((await db.query('SELECT access_label,access_url FROM portal.tasks WHERE id=$1', [task.id])).rows,
+      [{ access_label: null, access_url: null }]);
+    await assert.rejects(db.query(`INSERT INTO portal.task_resources (task_id,created_by,kind,label)
+      VALUES ($1,$2,'access','Old path')`, [task.id, user.id]), { code: '23514' });
+    await assert.rejects(db.query(`UPDATE portal.tasks SET access_label='Old path',access_url='https://example.invalid/old'
+      WHERE id=$1`, [task.id]), { code: '23514' });
+    await db.query('DELETE FROM portal.tasks WHERE id=$1', [task.id]);
+    assert.equal((await vaultFor(project.id)).rows.length, 2);
+  } finally {
+    await db.close();
+  }
+});
+
 test('default all-project clients get memberships for existing and future projects, and revocations remain effective', async () => {
   const db = new PGlite();
   try {

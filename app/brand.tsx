@@ -1,7 +1,7 @@
-import Image from 'next/image';
+import Link from 'next/link';
 
 export function Brand() {
-  return <div className="brand">
-    <Image className="brand-logo" src="/ghl-prime-logo.webp" alt="GHL Prime" width={144} height={48} priority />
-  </div>;
+  return <Link className="brand-link" href="/" aria-label="AI Avengers™ home">
+    <span className="brand-ai">AI</span> Avengers<sup>™</sup>
+  </Link>;
 }

@@ -57,3 +57,13 @@
 .date-picker-trigger .date-picker-chevron { margin-inline-start: auto; flex: none; }
 .date-picker-trigger svg:first-child { flex: none; color: #6959da; }
 .date-picker-trigger[aria-expanded="true"] { border-color: #9387f0; box-shadow: 0 0 0 3px #eae8ff; }
+.button.date-picker-trigger[aria-invalid="true"] { border-color: #b84459; }
+
+.date-time-picker-controls {
+  display: grid;
+  gap: .65rem;
+  margin-top: .55rem;
+  padding: .65rem .15rem .15rem;
+  border-top: 1px solid var(--line);
+}
+.date-time-picker-actions { display: flex; justify-content: flex-end; gap: .5rem; }

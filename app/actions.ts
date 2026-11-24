@@ -9,7 +9,6 @@ import { requireTask, visibleProject } from '@/lib/access';
 import { query, transaction } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
-import { encryptTaskPassword } from '@/lib/task-credentials';
 import { canManageTaskContent, canTransition, validDeadline, workflowFormFields, type Status } from '@/lib/rules';
 import { parseNewTaskForm, safeLink, taskUpdate } from '@/lib/validation';
 
@@ -68,36 +67,17 @@ export async function createTask(_: FormResult, form: FormData): Promise<FormRes
   if (!validDeadline(input.dueAt, Date.now())) return deadlineError;
 
   const taskId = randomUUID();
-  let encryptedPasswords: (string | null)[];
-  try {
-    encryptedPasswords = input.accessItems.map(item => item.password ? encryptTaskPassword(item.password, taskId) : null);
-  } catch {
-    return { error: 'Credential storage is not configured. Contact your administrator.', field: 'accessItems' };
-  }
-
-  const created = await transaction(async (db) => {
-    const { rows: [task] } = await db.query<{ id: string }>(
-      `INSERT INTO portal.tasks
-          (id, project_id, created_by, request_id, title, instructions, checklist, caption,
-           reference_url, access_label, access_url, due_at)
-        SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::timestamptz
-        WHERE $12::timestamptz >= statement_timestamp() + interval '24 hours'
-          AND ($13 <> 'client_admin' OR EXISTS (
-            SELECT 1 FROM portal.memberships WHERE project_id=$2 AND user_id=$3))
-        ON CONFLICT (created_by, request_id) DO NOTHING RETURNING id`,
-      [taskId, project.id, user.id, input.requestId, input.title, input.instructions, JSON.stringify(input.checklist),
-        input.caption || null, input.referenceUrl || null, input.accessLabel || null, input.accessUrl || null, input.dueAt, user.role],
-    );
-    if (!task) return false;
-    for (const [index, item] of input.accessItems.entries()) {
-      await db.query(
-        `INSERT INTO portal.task_resources (task_id,created_by,kind,label,url,account_email,note,encrypted_password)
-         VALUES ($1,$2,'access',$3,$4,$5,$6,$7)`,
-        [taskId, user.id, item.label, item.url || null, item.email || null, item.note || null, encryptedPasswords[index]],
-      );
-    }
-    return true;
-  });
+  const { rows: [created] } = await query<{ id: string }>(
+    `INSERT INTO portal.tasks
+        (id, project_id, created_by, request_id, title, instructions, checklist, caption, reference_url, due_at)
+      SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz
+      WHERE $10::timestamptz >= statement_timestamp() + interval '24 hours'
+        AND ($11 <> 'client_admin' OR EXISTS (
+          SELECT 1 FROM portal.memberships WHERE project_id=$2 AND user_id=$3))
+      ON CONFLICT (created_by, request_id) DO NOTHING RETURNING id`,
+    [taskId, project.id, user.id, input.requestId, input.title, input.instructions, JSON.stringify(input.checklist),
+      input.caption || null, input.referenceUrl || null, input.dueAt, user.role],
+  );
 
   if (!created) {
     if (!(await visibleProject(user, project.id))) return { error: 'Project unavailable.' };
@@ -219,46 +199,40 @@ export async function editTaskContent(_: FormResult, form: FormData): Promise<Fo
   return { ok: 'Task content updated.' };
 }
 
-export async function addTaskResource(_: FormResult, form: FormData): Promise<FormResult> {
+export async function addTaskMediaLink(_: FormResult, form: FormData): Promise<FormResult> {
   const user = await requireActor();
   if (!canManageTaskContent(user.role)) return { error: 'Only project administrators can change task content.' };
-  const data = z.object({ taskId: z.uuid(), kind: z.enum(['access', 'media_link']), label: z.string().trim().min(1).max(100),
-    url: safeLink, email: z.union([z.email().max(254), z.literal('')]),
-    note: z.string().trim().max(2000), password: z.string().max(512) }).safeParse({
-    taskId: read(form, 'taskId'), kind: read(form, 'kind'), label: read(form, 'label'), url: read(form, 'url'),
-    email: read(form, 'email').trim(), note: read(form, 'note'), password: read(form, 'password'),
+  const data = z.object({
+    taskId: z.uuid(), label: z.string().trim().min(1).max(100), url: safeLink,
+    note: z.string().trim().max(2000),
+  }).safeParse({
+    taskId: read(form, 'taskId'), label: read(form, 'label'), url: read(form, 'url'), note: read(form, 'note'),
   });
   if (!data.success) return validation(data.error);
-  const { taskId, kind, label, url, email, note, password } = data.data;
-  if (kind === 'media_link' && !url) return { error: 'Enter a media URL.' };
-  if (kind === 'media_link' && (email || password)) return { error: 'Media links cannot include account credentials.' };
+  const { taskId, label, url, note } = data.data;
+  if (!url) return { error: 'Enter a media URL.', field: 'url' };
   await requireTask(user, taskId);
-  let encrypted: string | null = null;
-  if (password) {
-    try { encrypted = encryptTaskPassword(password, taskId); }
-    catch { return { error: 'Credential storage is not configured. Contact your administrator.' }; }
-  }
-  const result = await query<{ id: string }>(`INSERT INTO portal.task_resources (task_id,created_by,kind,label,url,account_email,note,encrypted_password)
-    SELECT t.id,$2,$3,$4,$5,$6,$7,$8 FROM portal.tasks t WHERE t.id=$1
-    AND ($9 <> 'client_admin' OR EXISTS (SELECT 1 FROM portal.memberships m WHERE m.project_id=t.project_id AND m.user_id=$2)) RETURNING id`,
-    [taskId, user.id, kind, label, url || null, email || null, note || null, encrypted, user.role]);
+  const result = await query<{ id: string }>(`INSERT INTO portal.task_resources (task_id,created_by,kind,label,url,note)
+    SELECT t.id,$2,'media_link',$3,$4,$5 FROM portal.tasks t WHERE t.id=$1
+    AND ($6 <> 'client_admin' OR EXISTS (SELECT 1 FROM portal.memberships m WHERE m.project_id=t.project_id AND m.user_id=$2)) RETURNING id`,
+    [taskId, user.id, label, url, note || null, user.role]);
   if (!result.rows.length) return { error: 'Task unavailable.' };
   revalidatePath('/tasks/' + taskId);
-  return { ok: kind === 'access' ? 'Access item added.' : 'Media link added.' };
+  return { ok: 'Media link added.' };
 }
 
-export async function removeTaskResource(_: FormResult, form: FormData): Promise<FormResult> {
+export async function removeTaskMediaLink(_: FormResult, form: FormData): Promise<FormResult> {
   const user = await requireActor();
   if (!canManageTaskContent(user.role)) return { error: 'Only project administrators can change task content.' };
   const data = z.object({ taskId: z.uuid(), resourceId: z.uuid() }).safeParse({ taskId: read(form, 'taskId'), resourceId: read(form, 'resourceId') });
   if (!data.success) return { error: 'Resource unavailable.' };
   await requireTask(user, data.data.taskId);
-  const result = await query<{ id: string }>(`DELETE FROM portal.task_resources r USING portal.tasks t WHERE r.id=$1 AND r.task_id=$2 AND t.id=r.task_id
+  const result = await query<{ id: string }>(`DELETE FROM portal.task_resources r USING portal.tasks t WHERE r.id=$1 AND r.task_id=$2 AND t.id=r.task_id AND r.kind='media_link'
     AND ($4 <> 'client_admin' OR EXISTS (SELECT 1 FROM portal.memberships m WHERE m.project_id=t.project_id AND m.user_id=$3)) RETURNING r.id`,
     [data.data.resourceId, data.data.taskId, user.id, user.role]);
   if (!result.rows.length) return { error: 'Resource unavailable.' };
   revalidatePath('/tasks/' + data.data.taskId);
-  return { ok: 'Item removed.' };
+  return { ok: 'Media link removed.' };
 }
 
 export async function grantAccess(_: FormResult, form: FormData): Promise<FormResult> {

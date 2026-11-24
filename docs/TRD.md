@@ -4,9 +4,9 @@
 
 Migration 006 records whether a client admin should automatically receive future projects. Database triggers grant explicit membership rows for current projects when this option is enabled and for future projects as they are created. Project authorization still depends on each membership. Revoking a membership remains effective for that project; stopping automatic access to future projects does not remove existing memberships. The migration does not broaden existing accounts.
 
-Task access items and labeled media links are stored in `portal.task_resources` (migration 005). Optional access passwords use AES-256-GCM with a random nonce and task ID as authenticated context. `TASK_CREDENTIALS_KEY` is a server-only 32-byte hexadecimal key and must be retained securely and configured consistently on every app instance; losing it makes saved passwords unrecoverable. Key rotation requires decrypting and re-encrypting existing entries before removing the old key. A separate no-store endpoint rechecks the current project membership before revealing a password. URLs remain HTTPS-only and must not embed user/password components. Never put credentials in labels, notes, URLs or logs.
+Migration 007 moves task access entries and legacy task access links to `portal.project_access_items`, using the task's project ID. It preserves prior access item IDs, metadata, and ciphertext. Labeled media links remain in `portal.task_resources`. New tasks store briefs, media and reference links. The project owns the vault entries even if the original task is deleted.
 
-Task creation accepts a validated array of up to ten access items. It writes the task and its items together in one transaction. Reusing the same request ID returns the original task without duplicating its items.
+The vault accepts a validated array of up to ten access items per submission and saves them atomically. Optional passwords use AES-256-GCM with a random nonce and the project and item IDs as authenticated context. Migrated passwords retain the original task ID as their context. `TASK_CREDENTIALS_KEY` is a server-only 32-byte hexadecimal key. Keep the same key across app instances and migrations. Re-encrypt existing entries before retiring a key. A no-store endpoint rechecks project access before revealing a password. URLs are restricted HTTPS references without embedded credentials.
 
 Agency members may read project content, post updates, and make permitted workflow changes, but may not create tasks or add attachments. Enforce these restrictions at the server actions and media endpoints as well as in the interface. Approval and reopening remain administrator-only.
 
@@ -33,11 +33,13 @@ Supabase is selected as the integrated option for Postgres, authentication, and 
 |---|---|
 | `/login`, `/auth/confirm` | Password sign-in, invite and recovery token exchange |
 | `/dashboard` | Scoped project selector, task list, status filter, pagination |
+| `/projects/[slug]` | Scoped board and access vault. Super Admin and project Client Admin can add or remove vault entries. |
 | `/tasks/new` | Project authorization, strict task validation, atomic insert and retry key |
 | `/tasks/[id]` | Read task, post comment, update status and blocker, show recent activity |
 | `/settings` | Account password update. Super Admin can create projects and grant or revoke client access. |
 | `POST /api/media` | `begin` returns a private signed upload reservation. `finish` verifies the file and publishes it in the task. |
 | `GET /api/media/[id]` | Recheck project access for ready media; issue a 60-second signed download. |
+| `GET /api/project-access/[id]/password` | Recheck access to the owning project and reveal the encrypted password through a private, no-store response. |
 
 Mutations are protected at their server entry points. The media POST rejects a mismatched request origin. Server actions use the framework's origin check and independent session and project checks. Missing tasks, wrong-project tasks, and inaccessible files return 404 or a generic unavailable result. Invalid metadata returns 400. Invalid format/size after upload returns 422. Conflicting uploads return 409. A storage interruption returns 502.
 
@@ -49,6 +51,7 @@ Mutations are protected at their server entry points. The media POST rejects a m
 | `projects` | UUID and unique slug. Seed creates the three launch projects. |
 | `memberships` | Unique pair of project and client admin IDs. |
 | `tasks` | Project FK, author FK, global sequence, fixed team assignee, request UUID, brief, UTC deadline, status and blocker. |
+| `project_access_items` | Project and author IDs, platform label, optional account email, encrypted password, restricted link, and note. |
 | `comments` | Task and author IDs, update or learning, body and timestamp. |
 | `media` | Task ID, verified uploader, private object key, type, size, and readiness flag. |
 | `events` | Task ID and actor, old/new status, blocker category and time. Workflow changes and events commit together. |

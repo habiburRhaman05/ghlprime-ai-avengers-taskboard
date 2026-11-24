@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, ArrowLeft, ArrowUpRight, CalendarClock, Download, FileText, Images, KeyRound, MessageSquare, Pencil, Send } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowUpRight, CalendarClock, Download, FileText, Images, MessageSquare, Pencil, Send } from 'lucide-react';
 import { requireActor } from '@/lib/auth';
 import { requireTask } from '@/lib/access';
 import { query } from '@/lib/db';
@@ -12,7 +12,7 @@ import { ActionForm, CreatedToast, Time } from '@/app/components';
 import { PanelHeading } from '@/app/panel-heading';
 import { WorkflowForm } from './workflow-form';
 import { Upload } from './upload';
-import { ResourceForm, ResourceRemove, RevealPassword } from './resource-form';
+import { MediaLinkForm, MediaLinkRemove } from './media-link-form';
 
 export const metadata = { title: 'Task details' };
 export default async function TaskPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
@@ -20,7 +20,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const task = await requireTask(user, id);
   const created = (await searchParams).created === '1';
-  const [comments, media, events, resources] = await Promise.all([
+  const [comments, media, events, { rows: mediaLinks }] = await Promise.all([
     query<{ id: string; name: string; kind: string; body: string; created_at: Date }>(
       `SELECT c.id,u.name,c.kind,c.body,c.created_at FROM portal.comments c
         JOIN portal.users u ON u.id=c.author_id WHERE c.task_id=$1 ORDER BY c.created_at DESC,c.id DESC`, [id]),
@@ -29,13 +29,11 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
     query<{ id: string; name: string; created_at: Date; details: { from: keyof typeof statusLabels; to: keyof typeof statusLabels } }>(
       `SELECT e.id,u.name,e.created_at,e.details FROM portal.events e
       JOIN portal.users u ON u.id=e.actor_id WHERE e.task_id=$1 ORDER BY e.id DESC LIMIT 30`, [id]),
-    query<{ id: string; kind: 'access' | 'media_link'; label: string; url: string | null; account_email: string | null; note: string | null; has_password: boolean }>(
-      `SELECT id,kind,label,url,account_email,note,(encrypted_password IS NOT NULL) AS has_password
-       FROM portal.task_resources WHERE task_id=$1 ORDER BY created_at,id`, [id]),
+    query<{ id: string; label: string; url: string; note: string | null }>(
+      `SELECT id,label,url,note FROM portal.task_resources
+       WHERE task_id=$1 AND kind='media_link' ORDER BY created_at,id`, [id]),
   ]);
   const canEdit = canManageTaskContent(user.role);
-  const mediaLinks = resources.rows.filter(item => item.kind === 'media_link');
-  const accessItems = resources.rows.filter(item => item.kind === 'access');
   const overdue = task.status !== 'completed' && task.due_at.getTime() < Date.now();
   return <div className="page-stack">
     {created && <CreatedToast />}
@@ -81,10 +79,10 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
             ))}
           </ul>}
           {mediaLinks.length > 0 && <ul className="resource-list">{mediaLinks.map(item => <li key={item.id}>
-            <div className="resource-details"><a className="resource-link" href={item.url ?? '#'} target="_blank" rel="noreferrer">{item.label} <ArrowUpRight size={15} aria-hidden="true" /></a>{item.note && <p className="preserve muted">{item.note}</p>}</div>
-            {canEdit && <ResourceRemove taskId={id} resourceId={item.id} />}
+            <div className="resource-details"><a className="resource-link" href={item.url} target="_blank" rel="noreferrer">{item.label} <ArrowUpRight size={15} aria-hidden="true" /></a>{item.note && <p className="preserve muted">{item.note}</p>}</div>
+            {canEdit && <MediaLinkRemove taskId={id} resourceId={item.id} />}
           </li>)}</ul>}
-          {canEdit && <><ResourceForm taskId={id} kind="media_link" /><Upload taskId={id} /></>}
+          {canEdit && <><MediaLinkForm taskId={id} /><Upload taskId={id} /></>}
         </section>
         <section className="card panel stack">
           <PanelHeading icon={MessageSquare} title="Updates and learnings" />
@@ -112,18 +110,6 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
           </dl>
           <WorkflowForm key={task.status + task.blocker + task.blocker_note} id={id} status={task.status}
             role={user.role} blocker={task.blocker} note={task.blocker_note} />
-        </section>
-        <section className="card panel stack">
-          <PanelHeading icon={KeyRound} title="Access" />
-          {task.access_url ? <a className="quiet" href={task.access_url} target="_blank" rel="noreferrer">{task.access_label}</a>
-            : null}
-          {accessItems.length > 0 ? <ul className="resource-list">{accessItems.map(item => <li key={item.id}>
-            <div className="resource-details">{item.url ? <a className="resource-link" href={item.url} target="_blank" rel="noreferrer">{item.label} <ArrowUpRight size={15} aria-hidden="true" /></a> : <strong>{item.label}</strong>}
-              {item.account_email && <small>{item.account_email}</small>}{item.note && <p className="preserve muted">{item.note}</p>}
-              {item.has_password && <RevealPassword id={item.id} />}</div>
-            {canEdit && <ResourceRemove taskId={id} resourceId={item.id} />}
-          </li>)}</ul> : !task.access_url && <p className="muted">No access items provided.</p>}
-          {canEdit && <ResourceForm taskId={id} kind="access" />}
         </section>
         {events.rows.length > 0 && <section className="card panel stack">
           <PanelHeading icon={Activity} title="Activity" />

@@ -18,7 +18,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           <div className="login-brand"><Brand /></div>
           <div className="login-intro">
             <h1 id="sign-in-heading">Welcome back</h1>
-            <p>Sign in to the GHL Prime Client Portal.</p>
+            <p>Sign in to your project workspace.</p>
           </div>
           {link === 'expired' && (
             <p role="alert" className="error">This account link is invalid or expired. Request a fresh link from your administrator.</p>

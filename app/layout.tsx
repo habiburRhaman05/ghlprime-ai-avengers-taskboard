@@ -3,7 +3,7 @@ import '@fontsource-variable/dm-sans';
 import { Toaster } from 'sonner';
 import './styles.css';
 export const metadata: Metadata = {
-  title: { default: 'GHL Prime | Client Portal', template: '%s | GHL Prime' },
+  title: { default: 'AI Avengers™ | Client Portal', template: '%s | AI Avengers™' },
   description: 'Manage projects and collaborate with GHL Prime Team.',
   robots: { index: false, follow: false },
 };
