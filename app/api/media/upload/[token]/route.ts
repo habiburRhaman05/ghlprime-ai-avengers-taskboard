@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
-import fs from 'node:fs';
+import { createWriteStream } from 'node:fs';
+import { mkdir, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
 import { MEDIA_LIMIT, MEDIA_TYPES } from '@/lib/media';
+import { mediaFilePath } from '@/lib/media-storage';
 import { actor } from '@/lib/auth';
 import { visibleTask } from '@/lib/access';
-import { query } from '@/lib/db';
+import { query, transaction } from '@/lib/db';
 import { canManageTaskContent } from '@/lib/rules';
-
-const STORAGE_DIR = process.env.STORAGE_DIR ?? path.join(process.cwd(), 'storage');
 
 function getSigningSecret(): string {
   const rawSecret = process.env.STORAGE_SIGNING_SECRET ?? process.env.SESSION_SECRET;
@@ -44,7 +45,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ toke
   if (!objectKey) return new NextResponse('Invalid or expired upload token.', { status: 403 });
   const user = await actor();
   if (!user || !canManageTaskContent(user.role)) return new NextResponse('Upload unavailable.', { status: 404 });
-  const { rows: [reservation] } = await query<{ task_id: string; uploader: string; mime: string; bytes: number; ready: boolean }>(
+  const { rows: [reservation] } = await query<{ task_id: string; uploader: string | null; mime: string; bytes: number; ready: boolean }>(
     'SELECT task_id,uploader,mime,bytes,ready FROM portal.media WHERE object_key=$1', [objectKey]);
   if (!reservation || reservation.ready || reservation.uploader !== user.id || !(await visibleTask(user, reservation.task_id))) {
     return new NextResponse('Upload unavailable.', { status: 404 });
@@ -61,37 +62,48 @@ export async function PUT(request: Request, { params }: { params: Promise<{ toke
   }
   if (bytes !== reservation.bytes || contentType !== reservation.mime) return new NextResponse('Upload does not match its reservation.', { status: 400 });
 
-  const filePath = path.join(STORAGE_DIR, objectKey);
-  try {
-    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    const stream = fs.createWriteStream(filePath);
-    const reader = request.body?.getReader();
-    if (!reader) return new NextResponse('No body.', { status: 400 });
-    let received = 0;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      stream.write(Buffer.from(value));
-      received += value.length;
-      if (received > MEDIA_LIMIT) {
-        stream.destroy();
-        await fs.promises.unlink(filePath).catch(() => {});
-        return new NextResponse('File too large.', { status: 400 });
+  const body = request.body;
+  if (!body) return new NextResponse('No body.', { status: 400 });
+  let received = 0;
+  async function* chunks(source: ReadableStream<Uint8Array>) {
+    const reader = source.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        received += value.byteLength;
+        if (received > bytes) return;
+        yield value;
       }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
-    stream.end();
-    await new Promise((resolve, reject) => {
-      stream.on('finish', () => resolve(undefined));
-      stream.on('error', reject);
-    });
-    if (received !== bytes) {
-      await fs.promises.unlink(filePath).catch(() => {});
-      return new NextResponse('Size mismatch.', { status: 400 });
-    }
-  } catch {
-    await fs.promises.unlink(filePath).catch(() => {});
-    return new NextResponse('Upload failed.', { status: 500 });
   }
 
-  return new NextResponse('OK', { status: 200 });
+  const filePath = mediaFilePath(objectKey);
+  const pendingPath = filePath + '.' + randomUUID() + '.upload';
+  try {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await pipeline(chunks(body), createWriteStream(pendingPath, { flags: 'wx' }));
+    if (received !== bytes) return new NextResponse('Size mismatch.', { status: 400 });
+
+    // A deletion either removes the reservation first or queues the installed file.
+    const installed = await transaction(async db => {
+      const { rows } = await db.query(
+        `SELECT f.id FROM portal.media f JOIN portal.tasks t ON t.id=f.task_id
+         WHERE f.object_key=$1 AND f.uploader=$2 AND NOT f.ready AND ($3 <> 'client_admin' OR EXISTS (
+           SELECT 1 FROM portal.memberships m WHERE m.project_id=t.project_id AND m.user_id=$2))
+         FOR UPDATE OF f`, [objectKey, user.id, user.role],
+      );
+      if (!rows.length) return false;
+      await rename(pendingPath, filePath);
+      return true;
+    });
+    return installed ? new NextResponse('OK') : new NextResponse('Upload unavailable.', { status: 404 });
+  } catch {
+    return new NextResponse('Upload failed.', { status: 500 });
+  } finally {
+    await unlink(pendingPath).catch(() => {});
+  }
 }

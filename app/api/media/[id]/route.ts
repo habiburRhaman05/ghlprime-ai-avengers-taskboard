@@ -3,10 +3,8 @@ import { z } from 'zod';
 import { actor } from '@/lib/auth';
 import { query } from '@/lib/db';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { createHmac } from 'node:crypto';
-
-const STORAGE_DIR = process.env.STORAGE_DIR ?? path.join(process.cwd(), 'storage');
+import { mediaFilePath } from '@/lib/media-storage';
 
 function getSigningSecret(): string {
   const rawSecret = process.env.STORAGE_SIGNING_SECRET ?? process.env.SESSION_SECRET;
@@ -34,9 +32,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         SELECT 1 FROM portal.memberships m WHERE m.project_id=t.project_id AND m.user_id::text=$2))`, [id, user.id, user.role]);
   if (!file) return new NextResponse(null, { status: 404 });
 
-  const filePath = path.join(STORAGE_DIR, file.object_key);
   try {
-    await fs.access(filePath);
+    await fs.access(mediaFilePath(file.object_key));
   } catch {
     return new NextResponse(null, { status: 404 });
   }

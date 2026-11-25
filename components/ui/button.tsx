@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva('', {
-  variants: { variant: { default: 'button', secondary: 'button secondary', ghost: 'button button-ghost', link: 'quiet' } },
+  variants: { variant: { default: 'button', secondary: 'button secondary', ghost: 'button button-ghost', destructive: 'button destructive', link: 'quiet' } },
   defaultVariants: { variant: 'default' },
 });
 

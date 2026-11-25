@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-
-const STORAGE_DIR = process.env.STORAGE_DIR ?? path.join(process.cwd(), 'storage');
+import { query } from '@/lib/db';
+import { mediaFilePath } from '@/lib/media-storage';
 
 function getSigningSecret(): string {
   const rawSecret = process.env.STORAGE_SIGNING_SECRET ?? process.env.SESSION_SECRET;
@@ -38,12 +37,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const objectKey = verifyToken(token);
   if (!objectKey) return new NextResponse('Invalid or expired download token.', { status: 403 });
 
+  const { rows } = await query('SELECT id FROM portal.media WHERE object_key=$1 AND ready', [objectKey]);
+  if (!rows.length) return new NextResponse('File not found.', { status: 404 });
+
   const { searchParams } = new URL(request.url);
   const filename = searchParams.get('filename') ?? 'download';
 
-  const filePath = path.join(STORAGE_DIR, objectKey);
   try {
-    const fileHandle = await fs.open(filePath, 'r');
+    const fileHandle = await fs.open(mediaFilePath(objectKey), 'r');
     const stat = await fileHandle.stat();
     const stream = fileHandle.createReadStream();
     const readable = new ReadableStream({

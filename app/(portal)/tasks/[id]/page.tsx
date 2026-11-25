@@ -8,7 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { editTaskContent, postComment } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
-import { ActionForm, CreatedToast, Time } from '@/app/components';
+import { ActionForm, RedirectToast, Time } from '@/app/components';
+import { deleteTask } from '@/app/delete-actions';
+import { DeleteDialog } from '@/app/delete-dialog';
 import { PanelHeading } from '@/app/panel-heading';
 import { WorkflowForm } from './workflow-form';
 import { Upload } from './upload';
@@ -22,13 +24,13 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
   const created = (await searchParams).created === '1';
   const [comments, media, events, { rows: mediaLinks }] = await Promise.all([
     query<{ id: string; name: string; kind: string; body: string; created_at: Date }>(
-      `SELECT c.id,u.name,c.kind,c.body,c.created_at FROM portal.comments c
-        JOIN portal.users u ON u.id=c.author_id WHERE c.task_id=$1 ORDER BY c.created_at DESC,c.id DESC`, [id]),
+      `SELECT c.id,COALESCE(u.name,'Deleted member') AS name,c.kind,c.body,c.created_at FROM portal.comments c
+        LEFT JOIN portal.users u ON u.id=c.author_id WHERE c.task_id=$1 ORDER BY c.created_at DESC,c.id DESC`, [id]),
     query<{ id: string; filename: string; bytes: number }>(
       'SELECT id,filename,bytes FROM portal.media WHERE task_id=$1 AND ready ORDER BY created_at', [id]),
     query<{ id: string; name: string; created_at: Date; details: { from: keyof typeof statusLabels; to: keyof typeof statusLabels } }>(
-      `SELECT e.id,u.name,e.created_at,e.details FROM portal.events e
-      JOIN portal.users u ON u.id=e.actor_id WHERE e.task_id=$1 ORDER BY e.id DESC LIMIT 30`, [id]),
+      `SELECT e.id,COALESCE(u.name,'Deleted member') AS name,e.created_at,e.details FROM portal.events e
+      LEFT JOIN portal.users u ON u.id=e.actor_id WHERE e.task_id=$1 ORDER BY e.id DESC LIMIT 30`, [id]),
     query<{ id: string; label: string; url: string; note: string | null }>(
       `SELECT id,label,url,note FROM portal.task_resources
        WHERE task_id=$1 AND kind='media_link' ORDER BY created_at,id`, [id]),
@@ -36,7 +38,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
   const canEdit = canManageTaskContent(user.role);
   const overdue = task.status !== 'completed' && task.due_at.getTime() < Date.now();
   return <div className="page-stack">
-    {created && <CreatedToast />}
+    {created && <RedirectToast param="created" message="Task created successfully." />}
     <Link className="breadcrumb" href={'/projects/' + task.project_slug}><ArrowLeft size={16} aria-hidden="true" /> {task.project_name}</Link>
     <header className="page-header page-hero">
       <div>
@@ -44,6 +46,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
         <h1>{task.title}</h1>
         <p>Assigned to {task.assignee}</p>
       </div>
+      {user.role === 'super_admin' && <DeleteDialog kind="task" id={task.id} name={task.title} action={deleteTask} />}
     </header>
     <div className="detail-grid task-grid">
       <div className="stack">

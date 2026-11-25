@@ -70,10 +70,11 @@ export async function createTask(_: FormResult, form: FormData): Promise<FormRes
   const { rows: [created] } = await query<{ id: string }>(
     `INSERT INTO portal.tasks
         (id, project_id, created_by, request_id, title, instructions, checklist, caption, reference_url, due_at)
-      SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz
-      WHERE $10::timestamptz >= statement_timestamp() + interval '24 hours'
+      SELECT $1,p.id,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz FROM portal.projects p
+      WHERE p.id=$2 AND $10::timestamptz >= statement_timestamp() + interval '24 hours'
         AND ($11 <> 'client_admin' OR EXISTS (
           SELECT 1 FROM portal.memberships WHERE project_id=$2 AND user_id=$3))
+      FOR KEY SHARE OF p
       ON CONFLICT (created_by, request_id) DO NOTHING RETURNING id`,
     [taskId, project.id, user.id, input.requestId, input.title, input.instructions, JSON.stringify(input.checklist),
       input.caption || null, input.referenceUrl || null, input.dueAt, user.role],
@@ -118,6 +119,7 @@ export async function updateTask(_: FormResult, form: FormData): Promise<FormRes
   const updated = await db.query<{ status: Status; blocker: string; blocker_note: string }>(
     'SELECT status,blocker,blocker_note FROM portal.tasks WHERE id=$1 FOR UPDATE', [taskId]);
   const old = updated.rows[0];
+  if (!old) return { error: 'Task unavailable.' };
   if (!canTransition(user.role, old.status, status)) return { error: 'That status change is unavailable. Refresh the task and try again.' };
   if (old.status === status && old.blocker === blocker && old.blocker_note === note) return { ok: 'Task updated.' };
   await db.query(`UPDATE portal.tasks SET status=$1,blocker=$2,blocker_note=$3,
@@ -249,10 +251,12 @@ export async function grantAccess(_: FormResult, form: FormData): Promise<FormRe
     return { error: 'Project unavailable.' };
   }
 
-  const account = await prisma.user.findUnique({ where: { email } });
-  if (!account) return { error: 'Create this login account before granting access.' };
-  if (account.role !== role) return { error: 'This account already has a different role.' };
   return await transaction(async (db) => {
+    const { rows: [account] } = await db.query<{ role: string; password_hash: string }>(
+      'SELECT role,password_hash FROM public."User" WHERE email=$1 FOR KEY SHARE', [email],
+    );
+    if (!account) return { error: 'Create this login account before granting access.' };
+    if (account.role !== role) return { error: 'This account already has a different role.' };
     const { rows: [profile] } = await db.query<{ id: string; role: string }>(
       `INSERT INTO portal.users (id,name,role,email,password_hash) VALUES (gen_random_uuid(),$1,$2,$3,$4)
        ON CONFLICT (email) DO UPDATE SET email=excluded.email RETURNING id,role`,

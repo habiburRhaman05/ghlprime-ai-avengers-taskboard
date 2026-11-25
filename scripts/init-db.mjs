@@ -21,11 +21,11 @@ async function main() {
     // Create super admin
     const superAdminPassword = await hashPassword('superadmin123');
     const superAdmin = await prisma.user.upsert({
-      where: { email: 'admin@ghl-prime.com' },
+      where: { email: 'admin@ai-avengers.com' },
       update: { password_hash: superAdminPassword },
       create: {
         name: 'Super Admin',
-        email: 'admin@ghl-prime.com',
+        email: 'admin@ai-avengers.com',
         password_hash: superAdminPassword,
         role: 'super_admin',
       },
@@ -35,11 +35,11 @@ async function main() {
     // Create agency member
     const agencyPassword = await hashPassword('agency123456');
     const agency = await prisma.user.upsert({
-      where: { email: 'agency@ghl-prime.com' },
+      where: { email: 'agency@ai-avengers.com' },
       update: { password_hash: agencyPassword },
       create: {
         name: 'Agency Member',
-        email: 'agency@ghl-prime.com',
+        email: 'agency@ai-avengers.com',
         password_hash: agencyPassword,
         role: 'agency_member',
       },
@@ -49,11 +49,11 @@ async function main() {
     // Create client admin
     const clientPassword = await hashPassword('client123456');
     const client = await prisma.user.upsert({
-      where: { email: 'client@ghl-prime.com' },
+      where: { email: 'client@ai-avengers.com' },
       update: { password_hash: clientPassword },
       create: {
         name: 'Client Admin',
-        email: 'client@ghl-prime.com',
+        email: 'client@ai-avengers.com',
         password_hash: clientPassword,
         role: 'client_admin',
       },
@@ -123,9 +123,9 @@ async function main() {
 
     console.log('\n✅ Database initialized successfully!');
     console.log('\nTest accounts:');
-    console.log('  Super Admin: admin@ghl-prime.com / superadmin123');
-    console.log('  Agency Member: agency@ghl-prime.com / agency123456');
-    console.log('  Client Admin: client@ghl-prime.com / client123456');
+    console.log('  Super Admin: admin@ai-avengers.com / superadmin123');
+    console.log('  Agency Member: agency@ai-avengers.com / agency123456');
+    console.log('  Client Admin: client@ai-avengers.com / client123456');
 
   } catch (error) {
     console.error('Error initializing database:', error);

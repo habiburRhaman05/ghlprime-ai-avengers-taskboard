@@ -5,6 +5,7 @@ import { actor } from '@/lib/auth';
 import { visibleTask } from '@/lib/access';
 import { query, transaction } from '@/lib/db';
 import { MEDIA_LIMIT, MEDIA_TYPES, matchingMedia } from '@/lib/media';
+import { cleanDeletedMedia, mediaFilePath } from '@/lib/media-storage';
 import { canManageTaskContent } from '@/lib/rules';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -79,55 +80,60 @@ export async function POST(request: Request) {
     const key = [task.project_id, taskId, id].join('/');
 
     const reserved = await transaction(async (db) => {
-    await db.query('SELECT id FROM portal.tasks WHERE id=$1 FOR UPDATE', [taskId]);
-    const { rows: [usage] } = await db.query<{ count: number }>(
-      `SELECT count(*)::integer AS count FROM portal.media
-       WHERE task_id=$1 AND (ready OR created_at > now() - interval '2 hours')`, [taskId]);
-    if (usage.count >= 10) return false;
+      const { rows: [activeTask] } = await db.query('SELECT id FROM portal.tasks WHERE id=$1 FOR UPDATE', [taskId]);
+      if (!activeTask) return 'unavailable';
+      const { rows: [usage] } = await db.query<{ count: number }>(
+        `SELECT count(*)::integer AS count FROM portal.media
+         WHERE task_id=$1 AND (ready OR created_at > now() - interval '2 hours')`, [taskId]);
+      if (usage.count >= 10) return 'limit';
 
-    await db.query(
-      'INSERT INTO portal.media (id,task_id,uploader,object_key,filename,mime,bytes) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, taskId, user.id, key, filename, mime, bytes]);
-    return true;
+      await db.query(
+        'INSERT INTO portal.media (id,task_id,uploader,object_key,filename,mime,bytes) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [id, taskId, user.id, key, filename, mime, bytes]);
+      return 'reserved';
     });
-    if (!reserved) return NextResponse.json({ error: 'This task has reached its 10-file limit, including pending uploads.' }, { status: 409 });
+    if (reserved === 'unavailable') return NextResponse.json({ error: 'Task unavailable.' }, { status: 404 });
+    if (reserved === 'limit') return NextResponse.json({ error: 'This task has reached its 10-file limit, including pending uploads.' }, { status: 409 });
 
     const uploadToken = makeToken(key, 3600);
     const uploadUrl = `/api/media/upload/${encodeURIComponent(uploadToken)}`;
     return NextResponse.json({ id, path: uploadUrl, token: uploadToken });
   }
 
-  const { rows: [media] } = await query<{
-    id: string; object_key: string; mime: string; bytes: number; ready: boolean; created_at: Date;
-  }>('SELECT * FROM portal.media WHERE id=$1 AND task_id=$2 AND uploader=$3', [input.data.id, taskId, user.id]);
-  if (!media) return NextResponse.json({ error: 'Upload record unavailable.' }, { status: 404 });
-  if (media.ready) return NextResponse.json({ ok: true });
-  if (Date.now() - media.created_at.getTime() >= 2 * 60 * 60 * 1000) {
-    return NextResponse.json({ error: 'Upload expired. Select the file again.' }, { status: 409 });
-  }
+  const mediaId = input.data.id;
+  const finished = await transaction(async db => {
+    const { rows: [media] } = await db.query<{
+      object_key: string; mime: string; bytes: number; ready: boolean; created_at: Date;
+    }>('SELECT object_key,mime,bytes,ready,created_at FROM portal.media WHERE id=$1 AND task_id=$2 AND uploader=$3 FOR UPDATE',
+      [mediaId, taskId, user.id]);
+    if (!media) return NextResponse.json({ error: 'Upload record unavailable.' }, { status: 404 });
+    if (media.ready) return NextResponse.json({ ok: true });
+    if (Date.now() - media.created_at.getTime() >= 2 * 60 * 60 * 1000) {
+      return NextResponse.json({ error: 'Upload expired. Select the file again.' }, { status: 409 });
+    }
 
-  const filePath = path.join(STORAGE_DIR, media.object_key);
-  try {
-    await fs.access(filePath);
-    const stats = await fs.stat(filePath);
-    if (stats.size !== media.bytes) throw new Error('Size mismatch');
-  } catch {
-    return NextResponse.json({ error: 'The file has not reached storage yet.' }, { status: 409 });
-  }
+    let validMedia: boolean;
+    try {
+      const handle = await fs.open(mediaFilePath(media.object_key), 'r');
+      try {
+        if ((await handle.stat()).size !== media.bytes) throw new Error('Size mismatch');
+        const prefix = Buffer.alloc(16);
+        const { bytesRead } = await handle.read(prefix, 0, prefix.length, 0);
+        validMedia = matchingMedia(prefix.subarray(0, bytesRead), media.mime);
+      } finally {
+        await handle.close();
+      }
+    } catch {
+      return NextResponse.json({ error: 'The file has not reached storage yet.' }, { status: 409 });
+    }
 
-  const handle = await fs.open(filePath, 'r');
-  let validMedia = false;
-  try {
-    const prefix = Buffer.alloc(16);
-    const { bytesRead } = await handle.read(prefix, 0, prefix.length, 0);
-    validMedia = matchingMedia(prefix.subarray(0, bytesRead), media.mime);
-  } finally { await handle.close(); }
-  if (!validMedia) {
-    await fs.unlink(filePath).catch(() => {});
-    await query('DELETE FROM portal.media WHERE id=$1 AND uploader=$2 AND NOT ready', [media.id, user.id]);
-    return NextResponse.json({ error: 'File contents do not match the selected type.' }, { status: 422 });
-  }
-
-  await query('UPDATE portal.media SET ready=true WHERE id=$1', [media.id]);
-  return NextResponse.json({ ok: true });
+    if (!validMedia) {
+      await db.query('DELETE FROM portal.media WHERE id=$1', [mediaId]);
+      return NextResponse.json({ error: 'File contents do not match the selected type.' }, { status: 422 });
+    }
+    await db.query('UPDATE portal.media SET ready=true WHERE id=$1', [mediaId]);
+    return NextResponse.json({ ok: true });
+  });
+  if (finished.status === 422) await cleanDeletedMedia();
+  return finished;
 }

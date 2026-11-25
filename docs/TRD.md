@@ -8,6 +8,10 @@ Migration 007 moves task access entries and legacy task access links to `portal.
 
 The vault accepts a validated array of up to ten access items per submission and saves them atomically. Optional passwords use AES-256-GCM with a random nonce and the project and item IDs as authenticated context. Migrated passwords retain the original task ID as their context. `TASK_CREDENTIALS_KEY` is a server-only 32-byte hexadecimal key. Keep the same key across app instances and migrations. Re-encrypt existing entries before retiring a key. A no-store endpoint rechecks project access before revealing a password. URLs are restricted HTTPS references without embedded credentials.
 
+Migration 008 cascades project deletion to tasks and allows historical author references to be cleared when a member is deleted. Only the Super Admin can invoke deletion actions for tasks, projects, and members. Member deletion removes the Prisma login, portal profile, memberships, and unfinished uploads in one transaction. Tasks, comments, activity, ready attachments, and access items contributed by the member stay in their projects. Comment and activity author labels show “Deleted member” after removal.
+
+Task and project deletion queue attachment keys in the same transaction as their database rows are removed. The action attempts private file cleanup after commit, and failed unlinks stay queued for the next cleanup. Downloads check that the media record still exists. An upload publishes the staged file while holding its reservation lock so a concurrent deletion can still remove the file.
+
 Agency members may read project content, post updates, and make permitted workflow changes, but may not create tasks or add attachments. Enforce these restrictions at the server actions and media endpoints as well as in the interface. Approval and reopening remain administrator-only.
 
 The configured application currently authenticates against Prisma's `public."User"` table, rather than the Supabase Auth integration described in the original specification below. Project, task, and membership records remain in the `portal` schema. Migration `004_prisma_portal_profiles.sql` creates portal profiles for existing Prisma accounts by email; protected requests require a matching email and role in both tables and use the portal UUID for project authorization. Provisioning an account requires both records. A client still requires an explicit project membership. Local private file storage is currently used, so shared or ephemeral production hosts require an appropriate shared private storage solution before deployment.
@@ -33,10 +37,10 @@ Supabase is selected as the integrated option for Postgres, authentication, and 
 |---|---|
 | `/login`, `/auth/confirm` | Password sign-in, invite and recovery token exchange |
 | `/dashboard` | Scoped project selector, task list, status filter, pagination |
-| `/projects/[slug]` | Scoped board and access vault. Super Admin and project Client Admin can add or remove vault entries. |
+| `/projects/[slug]` | Scoped board and access vault. Super Admin can delete the project. Super Admin and project Client Admin can add or remove vault entries. |
 | `/tasks/new` | Project authorization, strict task validation, atomic insert and retry key |
-| `/tasks/[id]` | Read task, post comment, update status and blocker, show recent activity |
-| `/settings` | Account password update. Super Admin can create projects and grant or revoke client access. |
+| `/tasks/[id]` | Read task, post comment, update status and blocker, show recent activity. Super Admin can delete the task. |
+| `/settings` | Account password update. Super Admin can create and delete member accounts, create projects, and manage client access. |
 | `POST /api/media` | `begin` returns a private signed upload reservation. `finish` verifies the file and publishes it in the task. |
 | `GET /api/media/[id]` | Recheck project access for ready media; issue a 60-second signed download. |
 | `GET /api/project-access/[id]/password` | Recheck access to the owning project and reveal the encrypted password through a private, no-store response. |
@@ -67,7 +71,7 @@ Store both values as `timestamptz`. The submitted timestamp is ISO 8601 UTC. The
 - Portal schema stays outside Supabase's exposed Data API schemas. Anonymous/public SQL access is revoked. Supabase account verification and an active portal profile are checked on each protected request.
 - Use TLS, server-held database and storage keys, and a database runtime user with narrowly scoped grants. Client-rendered code receives only the public Supabase values.
 - Private media uses random object keys and signed upload reservations. Object limits are 10 files per task including active reservations and up to 50 MiB per file. Validate declared MIME and size in the app, bucket policy, and finalization metadata. Validate header signatures for PNG, JPEG, WebP, MP4, and WebM. The download endpoint issues attachment downloads. Signature verification is not a full file decode or malware scanner.
-- Send newly issued download URLs only after a fresh authorization check. A previously issued URL can remain usable until its short expiration. Review and purge abandoned upload reservations and their storage objects as part of operations.
+- Send newly issued download URLs only after a fresh authorization check. A previously issued URL can remain usable until its short expiration while the attachment exists. Review and purge abandoned upload reservations and their storage objects as part of operations.
 - Access URLs are bounded HTTPS references without a user/password component. A restricted invite or vault link must enforce its own recipient access. Passwords belong only in the encrypted password field, not in captions, notes, labels, or links.
 - Keep task, link, and media bodies out of application logs and build artifacts. Do not reuse live customer data in staging.
 

@@ -19,7 +19,8 @@ Sequence has six phases. Production rollout depends on the gates in phase 6. Kee
 4. The agency member sees the task, sets and clears a client blocker, adds a learning, and sends the task for review.
 5. Its client approves. A different client attempts the direct task, media, and vault password URLs and receives generic unavailable results. Check expiry of any already-issued media URL separately.
 6. Revoke a staging membership and repeat reads and updates with the prior session. Regrant only after the denial is verified.
-7. Record account role, browser/device, expected and actual outcome, and evidence without secrets or real customer files.
+7. With synthetic records, verify that only the Super Admin can delete a member, task, or project. Check that a removed member's session is denied, their contributions remain visible, and project deletion removes only that project's data and attachments.
+8. Record account role, browser/device, expected and actual outcome, and evidence without secrets or real customer files.
 
 ## Current verification
 

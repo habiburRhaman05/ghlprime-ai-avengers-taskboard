@@ -134,6 +134,64 @@ test('the project vault preserves legacy access and leaves media on its task', a
   }
 });
 
+test('member deletion preserves authored work and task or project deletion queues its files', async () => {
+  const db = new PGlite();
+  try {
+    for (const file of ['001_portal.sql', '005_task_resources.sql', '007_project_access_vault.sql', '008_admin_deletion.sql']) {
+      await db.exec(await readFile(new URL('../db/' + file, import.meta.url), 'utf8'));
+    }
+    const { rows: [project, other] } = await db.query('SELECT id FROM portal.projects ORDER BY slug');
+    const { rows: [member] } = await db.query(
+      "INSERT INTO portal.users (id,name,role) VALUES (gen_random_uuid(),'Synthetic member','client_admin') RETURNING id",
+    );
+    async function createTask(projectId) {
+      const { rows: [task] } = await db.query(
+        `INSERT INTO portal.tasks (project_id,created_by,request_id,title,instructions,due_at)
+         VALUES ($1,$2,gen_random_uuid(),'Synthetic task','Write an update',statement_timestamp() + interval '24 hours') RETURNING id`,
+        [projectId, member.id],
+      );
+      return task;
+    }
+    const task = await createTask(project.id);
+    const second = await createTask(project.id);
+    const untouched = await createTask(other.id);
+    await db.query('INSERT INTO portal.memberships VALUES ($1,$2)', [project.id, member.id]);
+    await db.query("INSERT INTO portal.comments (task_id,author_id,kind,body) VALUES ($1,$2,'update','Synthetic update')", [task.id, member.id]);
+    await db.query("INSERT INTO portal.events (task_id,actor_id,action) VALUES ($1,$2,'workflow_updated')", [task.id, member.id]);
+    await db.query(`INSERT INTO portal.task_resources (task_id,created_by,kind,label,url)
+      VALUES ($1,$2,'media_link','Synthetic video','https://example.invalid/video')`, [task.id, member.id]);
+    await db.query(`INSERT INTO portal.project_access_items (project_id,created_by,label)
+      VALUES ($1,$3,'First vault'),($2,$3,'Second vault')`, [project.id, other.id, member.id]);
+    for (const [row, key] of [[task, 'file-a'], [second, 'file-b']]) {
+      await db.query(`INSERT INTO portal.media (id,task_id,uploader,object_key,filename,mime,bytes,ready)
+        VALUES (gen_random_uuid(),$1,$2,$3,'example.png','image/png',12,true)`, [row.id, member.id, key]);
+    }
+
+    await db.query('DELETE FROM portal.users WHERE id=$1', [member.id]);
+    const { rows: [history] } = await db.query(`SELECT t.created_by, c.author_id, e.actor_id, m.uploader,
+      r.created_by AS link_author, a.created_by AS vault_author
+      FROM portal.tasks t JOIN portal.comments c ON c.task_id=t.id JOIN portal.events e ON e.task_id=t.id
+      JOIN portal.media m ON m.task_id=t.id JOIN portal.task_resources r ON r.task_id=t.id
+      JOIN portal.project_access_items a ON a.project_id=t.project_id WHERE t.id=$1`, [task.id]);
+    assert.deepEqual(history, { created_by: null, author_id: null, actor_id: null, uploader: null, link_author: null, vault_author: null });
+    assert.equal((await db.query('SELECT * FROM portal.memberships')).rows.length, 0);
+
+    await db.query('DELETE FROM portal.tasks WHERE id=$1', [task.id]);
+    assert.deepEqual((await db.query('SELECT object_key FROM portal.media_deletions')).rows, [{ object_key: 'file-a' }]);
+    assert.equal((await db.query('SELECT * FROM portal.project_access_items WHERE project_id=$1', [project.id])).rows.length, 1);
+    await db.query('DELETE FROM portal.projects WHERE id=$1', [project.id]);
+    assert.deepEqual((await db.query('SELECT object_key FROM portal.media_deletions ORDER BY object_key')).rows,
+      [{ object_key: 'file-a' }, { object_key: 'file-b' }]);
+    assert.deepEqual((await db.query('SELECT id FROM portal.tasks')).rows, [{ id: untouched.id }]);
+    assert.deepEqual((await db.query('SELECT project_id FROM portal.project_access_items')).rows, [{ project_id: other.id }]);
+    for (const table of ['comments', 'events', 'media', 'task_resources']) {
+      assert.equal((await db.query('SELECT id FROM portal.' + table)).rows.length, 0);
+    }
+  } finally {
+    await db.close();
+  }
+});
+
 test('default all-project clients get memberships for existing and future projects, and revocations remain effective', async () => {
   const db = new PGlite();
   try {

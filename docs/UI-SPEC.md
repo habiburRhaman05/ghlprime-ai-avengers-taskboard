@@ -10,12 +10,14 @@ Use DM Sans, shared shadcn/ui form controls, white panels, and violet primary ac
 |---|---|---|
 | Login | Portal name, email, password, Sign in | Invalid credentials, expired account link, awaiting project access |
 | Dashboard | Project cards with open and completed task counts, workspace totals, New task for admins | Scoped projects, no project access, tasks due within 24 hours |
-| Project board | Access vault directly below the banner, then clickable task cards grouped by status, status filter, and pagination | Empty vault, invalid access item, empty board, due soon, overdue |
+| Project board | Access vault directly below the banner, then clickable task cards grouped by status, status filter, and pagination. The Super Admin can delete the project from its banner. | Empty vault, invalid access item, empty board, due soon, overdue |
 | Create task | Task details on the left, content and references on the right, and Create task at bottom right. Panels stack on smaller screens. | Invalid deadline, submit in progress, retained inputs after validation error |
-| Task detail | Task ID, project, status, deadline, instructions, checklist, media, comments, activity | Blocker note, ready for review, overdue, upload pending or failed |
-| Settings | Account, password, project list | Super Admin additionally sees project creation, account grant form and client memberships |
+| Task detail | Task ID, project, status, deadline, instructions, checklist, media, comments, activity. The Super Admin can delete the task from its header. | Blocker note, ready for review, overdue, upload pending or failed |
+| Settings | Account, password, project list | Super Admin sees member management, project creation, account grant form and client memberships |
 
 Creating or granting access to a client defaults to all current and future projects, with a single-project option. The administrator can remove individual memberships and can stop automatic access to future projects without removing current memberships.
+
+Deletion opens a confirmation dialog that names the target and describes what will be removed. The Super Admin can delete client admins and agency members from the Members list.
 
 ## Create task inputs
 

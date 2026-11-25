@@ -44,12 +44,12 @@ export function Time({ at }: { at: string }) {
   return <time dateTime={at}>{text}</time>;
 }
 
-export function CreatedToast() {
+export function RedirectToast({ param, message }: { param: string; message: string }) {
   useEffect(() => {
-    toast.success('Task created successfully.', { id: 'task-created' });
+    toast.success(message, { id: param + '-' + message });
     const url = new URL(window.location.href);
-    url.searchParams.delete('created');
+    url.searchParams.delete(param);
     window.history.replaceState(window.history.state, '', url);
-  }, []);
+  }, [param, message]);
   return null;
 }

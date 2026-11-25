@@ -3,11 +3,12 @@ import { requireActor } from '@/lib/auth';
 import { projectsFor } from '@/lib/access';
 import { query } from '@/lib/db';
 import { canManageTaskContent } from '@/lib/rules';
+import { RedirectToast } from '@/app/components';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, ArrowUpRight, Clock3, FolderKanban, ListTodo, Plus } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   const user = await requireActor();
   const projects = await projectsFor(user);
   const { rows } = await query<{ project_id: string; total: number; open: number; due_soon: number }>(
@@ -26,6 +27,7 @@ export default async function Dashboard() {
   ];
   return (
     <div className="page-stack">
+      {user.role === 'super_admin' && (await searchParams).deleted === 'project' && <RedirectToast param="deleted" message="Project deleted." />}
       <header className="page-header page-hero dashboard-hero">
         <div>
           <p className="eyebrow">Workspace</p>

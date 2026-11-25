@@ -154,6 +154,29 @@ label small { font-weight: 400; }
 }
 .button.button-ghost { color: var(--ink); background: transparent; box-shadow: none; }
 .button.button-ghost:hover:not(:disabled) { background: var(--brand-soft); box-shadow: none; }
+.button.destructive { background: #ae2c44; box-shadow: none; }
+.button.destructive:hover:not(:disabled) { background: #8d2135; box-shadow: none; }
+.button.delete-trigger {
+  color: #93293f;
+  border-color: #f0ccd4;
+  background: #fff7f8;
+}
+.button.delete-trigger:hover:not(:disabled) { color: #772031; border-color: #e6aab8; background: #ffedf1; }
+.delete-dialog {
+  width: min(30rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  padding: clamp(1rem, 4vw, 1.55rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 22px 65px #15142a35;
+}
+.delete-dialog::backdrop { background: #15142a65; }
+.delete-dialog p { overflow-wrap: anywhere; }
+.delete-dialog p > span { display: block; margin-top: .3rem; color: var(--muted); }
+.delete-dialog-actions, .header-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.delete-dialog-actions { justify-content: flex-end; }
 .button svg, .sign-out svg { flex: none; }
 .quiet {
   display: inline-flex;

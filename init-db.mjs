@@ -20,7 +20,7 @@ async function run() {
     const superAdmin = await import('./lib/password.ts').then(m => m.hashPassword('Password123!'));
     await client.query(
       'INSERT INTO portal.users (id, name, role, email, password_hash) VALUES ($1, $2, $3, $4, $5)',
-      [superAdminId, 'Platform Admin', 'super_admin', 'admin@ghl-prime.com', superAdmin]
+      [superAdminId, 'Platform Admin', 'super_admin', 'admin@ai-avengers.com', superAdmin]
     );
     console.log('Created super admin');
 
@@ -29,7 +29,7 @@ async function run() {
     const team = await import('./lib/password.ts').then(m => m.hashPassword('Password123!'));
     await client.query(
       'INSERT INTO portal.users (id, name, role, email, password_hash) VALUES ($1, $2, $3, $4, $5)',
-      [teamId, 'GHL Prime Team', 'agency_member', 'team@ghl-prime.com', team]
+      [teamId, 'GHL Prime Team', 'agency_member', 'team@ai-avengers.com', team]
     );
     console.log('Created team user');
 

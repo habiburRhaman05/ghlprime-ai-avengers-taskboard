@@ -1,27 +1,33 @@
 import Link from 'next/link';
-import { ArrowUpRight, FolderKanban, KeyRound, Settings2, ShieldCheck, UserRound, UserRoundPlus } from 'lucide-react';
+import { ArrowUpRight, FolderKanban, KeyRound, Settings2, ShieldCheck, UserRound, UserRoundPlus, Users } from 'lucide-react';
 import { requireActor } from '@/lib/auth';
 import { projectsFor } from '@/lib/access';
 import { query } from '@/lib/db';
-import { ActionForm } from '@/app/components';
+import { ActionForm, RedirectToast } from '@/app/components';
 import { changePassword, createProject, createUser, grantAccess, revokeAccess, stopAutomaticAccess } from '@/app/actions';
+import { deleteMember } from '@/app/delete-actions';
+import { DeleteDialog } from '@/app/delete-dialog';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { PanelHeading } from '@/app/panel-heading';
 
 export const metadata = { title: 'Settings' };
-export default async function Settings() {
+export default async function Settings({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   const user = await requireActor();
   const projects = await projectsFor(user);
   const isAdmin = user.role === 'super_admin';
-  const memberships = isAdmin ? (await query<{
-    user_id: string; project_id: string; name: string; email: string; project_name: string;
-  }>(`SELECT m.user_id,m.project_id,u.name,u.email,p.name AS project_name FROM portal.memberships m
+  const [{ rows: memberships }, { rows: automaticClients }, { rows: members }] = isAdmin ? await Promise.all([
+    query<{ user_id: string; project_id: string; name: string; email: string; project_name: string }>(
+      `SELECT m.user_id,m.project_id,u.name,u.email,p.name AS project_name FROM portal.memberships m
       JOIN portal.users u ON u.id=m.user_id JOIN portal.projects p ON p.id=m.project_id
-      ORDER BY p.name,u.name`)).rows : [];
-  const automaticClients = isAdmin ? (await query<{ id: string; name: string; email: string }>(
-    `SELECT id,name,email FROM portal.users WHERE role='client_admin' AND all_projects ORDER BY name,email`)).rows : [];
+      ORDER BY p.name,u.name`),
+    query<{ id: string; name: string; email: string }>(
+      `SELECT id,name,email FROM portal.users WHERE role='client_admin' AND all_projects ORDER BY name,email`),
+    query<{ id: string; name: string; email: string; role: 'client_admin' | 'agency_member' }>(
+      `SELECT id,name,email,role FROM portal.users WHERE role <> 'super_admin' ORDER BY name,email`),
+  ]) : [{ rows: [] }, { rows: [] }, { rows: [] }];
   return <div className="page-stack">
+    {isAdmin && (await searchParams).deleted === 'member' && <RedirectToast param="deleted" message="Member deleted." />}
     <header className="page-header page-hero">
       <div className="hero-identity">
         <span className="hero-icon"><Settings2 size={25} aria-hidden="true" /></span>
@@ -55,6 +61,13 @@ export default async function Settings() {
     {isAdmin && <section className="stack" aria-labelledby="administration-heading">
       <h2 className="section-heading" id="administration-heading">User administration</h2>
       <div className="detail-grid">
+        <section className="card panel stack full-panel">
+          <PanelHeading icon={Users} title="Members" />
+          {members.length ? <ul className="clean">{members.map(member => <li className="member" key={member.id}>
+            <div><strong>{member.name}</strong><small>{member.email} · {member.role === 'agency_member' ? 'Agency member' : 'Client admin'}</small></div>
+            <DeleteDialog kind="member" id={member.id} name={member.name + ' · ' + member.email} action={deleteMember} />
+          </li>)}</ul> : <p className="muted">No members yet.</p>}
+        </section>
         <section className="card panel stack">
           <PanelHeading icon={UserRoundPlus} title="Create user" />
           <p className="muted">Client admins start with access to all current and future projects. Choose one project to limit their access.</p>

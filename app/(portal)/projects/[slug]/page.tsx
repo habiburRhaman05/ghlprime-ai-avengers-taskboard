@@ -4,7 +4,9 @@ import { requireActor } from '@/lib/auth';
 import { projectsFor, type Task } from '@/lib/access';
 import { query } from '@/lib/db';
 import { canManageTaskContent, statuses, statusLabels, taskNumber } from '@/lib/rules';
-import { Time } from '@/app/components';
+import { RedirectToast, Time } from '@/app/components';
+import { deleteProject } from '@/app/delete-actions';
+import { DeleteDialog } from '@/app/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Columns3, FolderKanban, Plus, SlidersHorizontal } from 'lucide-react';
@@ -13,7 +15,7 @@ import { ProjectAccessVault, projectAccessItems } from './vault';
 export const metadata = { title: 'Project' };
 export default async function ProjectPage({ params, searchParams }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ status?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; deleted?: string }>;
 }) {
   const user = await requireActor();
   const { slug } = await params;
@@ -35,19 +37,24 @@ export default async function ProjectPage({ params, searchParams }: {
   const newTaskUrl = '/tasks/new?project=' + project.slug;
   const pageUrl = (n: number) => projectUrl + '?' + new URLSearchParams({ status, page: String(n) });
   const canCreate = canManageTaskContent(user.role);
+  const isSuperAdmin = user.role === 'super_admin';
   const visibleTasks = tasks.slice(0, 50);
 
   return (
     <div className="page-stack">
+      {isSuperAdmin && filters.deleted === 'task' && <RedirectToast param="deleted" message="Task deleted." />}
       <Link className="breadcrumb" href="/dashboard"><ArrowLeft size={16} aria-hidden="true" /> All projects</Link>
       <header className="page-header page-hero">
         <div className="hero-identity">
           <span className="hero-icon"><FolderKanban size={25} aria-hidden="true" /></span>
           <div><p className="eyebrow">Project</p><h1>{project.name}</h1></div>
         </div>
-        {canCreate && <Button asChild className="hero-action">
-          <Link href={newTaskUrl}><Plus size={18} aria-hidden="true" /> New task</Link>
-        </Button>}
+        {canCreate && <div className="header-actions">
+          {isSuperAdmin && <DeleteDialog kind="project" id={project.id} name={project.name} action={deleteProject} />}
+          <Button asChild className="hero-action">
+            <Link href={newTaskUrl}><Plus size={18} aria-hidden="true" /> New task</Link>
+          </Button>
+        </div>}
       </header>
       <ProjectAccessVault key={project.id} projectId={project.id} items={accessItems} canEdit={canCreate} />
       <section aria-labelledby="task-board-heading">

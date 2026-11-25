@@ -13,8 +13,9 @@ Give each client a project workspace for assigning work to GHL Prime Team. Keep 
 | Capability | Super Admin | Client Admin | Agency Member |
 |---|---|---|---|
 | View projects and tasks | All projects | Projects explicitly granted to this account | All GHL Prime projects |
-| Create projects and manage client access | Yes |  |  |
+| Create or delete projects and manage member accounts and access | Yes |  |  |
 | Create tasks assigned to GHL Prime Team | Yes | In own projects |  |
+| Delete tasks | Yes |  |  |
 | Post progress, learnings, and blocker updates | Yes | In own projects | Yes |
 | Add task content and media | Yes | In own projects | No |
 | View project access vault | All projects | In own projects | All GHL Prime projects |
@@ -31,7 +32,7 @@ New client admins default to all current and future projects when a Super Admin 
 | ID | Requirement | Acceptance |
 |---|---|---|
 | P01 | Sign-in and project isolation | AI Avengers, Shading Director, and Insurance Defender each have their own dashboard scope. Opening a different project's task, comment action, or attachment directly returns an unavailable result. |
-| P02 | Platform administration | Super Admin can create projects, grant client membership, and revoke membership. The agency role has one slot. |
+| P02 | Platform administration | Super Admin can create projects and member accounts, manage project access, and confirm deletion of tasks, projects, or member accounts. Project deletion removes its tasks, access vault, and memberships. Account deletion revokes sessions and memberships and preserves previously contributed work. The agency role has one slot. |
 | P03 | Task creation | A task requires a project, title, instructions, and completion deadline. It gets a globally unique display ID such as `TASK-001` and assigns GHL Prime Team automatically. Consecutive IDs can have gaps. |
 | P04 | Minimum completion deadline | `deadline ≥ creation timestamp + 24 elapsed hours`. Reject 1 hour, 2 hours, 23 hours, and one millisecond under 24 hours. Accept the exact boundary and later valid times. Convert browser entry to an instant and enforce with server and database clocks. There is one completion deadline and no reply timer. |
 | P05 | Task content and media | Add an optional checklist, social caption, reference URL, and labeled media URLs. Attach images and videos within the created task. |
