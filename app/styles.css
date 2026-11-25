@@ -590,7 +590,7 @@ label small { font-weight: 400; }
 }
 .settings-projects a:hover { color: var(--brand-hover); }
 .settings-projects a svg { flex: none; color: var(--brand-hover); }
-.resource-add, .upload-form { border: 1px solid var(--line); border-radius: .72rem; padding: .8rem; background: var(--surface-soft); }
+.resource-add { border: 1px solid var(--line); border-radius: .72rem; padding: .8rem; background: var(--surface-soft); }
 .resource-add summary {
   display: flex;
   align-items: center;

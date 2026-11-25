@@ -13,7 +13,7 @@ import { deleteTask } from '@/app/delete-actions';
 import { DeleteDialog } from '@/app/delete-dialog';
 import { PanelHeading } from '@/app/panel-heading';
 import { WorkflowForm } from './workflow-form';
-import { Upload } from './upload';
+
 import { MediaLinkForm, MediaLinkRemove } from './media-link-form';
 
 export const metadata = { title: 'Task details' };
@@ -85,7 +85,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
             <div className="resource-details"><a className="resource-link" href={item.url} target="_blank" rel="noreferrer">{item.label} <ArrowUpRight size={15} aria-hidden="true" /></a>{item.note && <p className="preserve muted">{item.note}</p>}</div>
             {canEdit && <MediaLinkRemove taskId={id} resourceId={item.id} />}
           </li>)}</ul>}
-          {canEdit && <><MediaLinkForm taskId={id} /><Upload taskId={id} /></>}
+          {canEdit && <MediaLinkForm taskId={id} />}
         </section>
         <section className="card panel stack">
           <PanelHeading icon={MessageSquare} title="Updates and learnings" />

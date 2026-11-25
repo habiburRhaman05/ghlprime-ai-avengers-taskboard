@@ -8,6 +8,7 @@ import { changePassword, createProject, createUser, grantAccess, revokeAccess, s
 import { deleteMember } from '@/app/delete-actions';
 import { DeleteDialog } from '@/app/delete-dialog';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { PanelHeading } from '@/app/panel-heading';
 
@@ -42,8 +43,8 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <div><strong>{user.name}</strong><small>{user.email}</small></div>
         </div>
         <ActionForm action={changePassword} submit="Save password">
-          <label>New password<Input name="password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
-          <label>Confirm password<Input name="confirm" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+          <label>New password<PasswordInput name="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+          <label>Confirm password<PasswordInput name="confirm" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
         </ActionForm>
       </section>
       <section className="card panel stack">
@@ -76,7 +77,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <label>Email<Input name="email" type="email" maxLength={254} required /></label>
             <label>Role<NativeSelect name="role"><option value="client_admin">Client admin</option><option value="agency_member">Agency member</option></NativeSelect></label>
             <label>Project access<NativeSelect name="project" defaultValue="all"><option value="all">All projects (including future projects)</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</NativeSelect></label>
-            <label>Temporary password<Input name="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" required /><small>At least 12 characters. Share it securely with the user.</small></label>
+            <label>Temporary password<PasswordInput name="password" minLength={12} maxLength={128} autoComplete="new-password" required /><small>At least 12 characters. Share it securely with the user.</small></label>
           </ActionForm>
         </section>
         <section className="card panel stack">

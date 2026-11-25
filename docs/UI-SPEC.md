@@ -32,7 +32,6 @@ Deletion opens a confirmation dialog that names the target and describes what wi
 | Social media caption | Plain text, up to 2,200 characters | No |
 | Reference link | HTTPS URL, up to 1,000 characters, no URL credentials | No |
 | Media links | On the task: label, HTTPS URL, and optional note. Multiple links allowed. | No |
-| Image or video | In the created task's Media section. PNG, JPEG, WebP, MP4 or WebM; 50 MiB each; 10 per task. | No |
 
 Show the hint “Choose a time at least 24 hours after creating the task” beside the deadline. The form rejects a deadline earlier than the lower bound without clearing the brief. Browser formatting follows the device timezone.
 

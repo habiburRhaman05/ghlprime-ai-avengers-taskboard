@@ -22,6 +22,6 @@ test('anonymous users are redirected from protected routes', async () => {
 });
 test('media endpoints reject anonymous access and a mismatched origin', async () => {
   assert.equal((await request('/api/media/00000000-0000-4000-8000-000000000001')).status, 404);
-  assert.equal((await request('/api/media', { method: 'POST', headers: { Origin: 'https://other.example' } })).status, 403);
-  assert.equal((await request('/api/media', { method: 'POST', headers: { Origin: base.origin } })).status, 401);
+  assert.equal((await request('/api/media', { method: 'POST', headers: { Origin: 'https://other.example' } })).status, 404);
+  assert.equal((await request('/api/media', { method: 'POST', headers: { Origin: base.origin } })).status, 404);
 });

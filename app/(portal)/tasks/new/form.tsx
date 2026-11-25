@@ -132,7 +132,7 @@ export function NewTaskForm({ projects, lockedProject, action, requestId }: {
           Reference link <small>Optional</small>
           <Input name="referenceUrl" type="url" maxLength={1000} placeholder="https://" {...fieldProps('referenceUrl')} />
         </label>
-        <p className="task-media-hint">Attach files or labeled media links on the task after creating it.</p>
+        <p className="task-media-hint">Add labeled media links after creating the task.</p>
       </section>
 
       {feedback.error && <p className="error create-feedback" role="alert" id={errorId}>{feedback.error}</p>}
